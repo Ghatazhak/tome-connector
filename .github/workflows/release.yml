@@ -2,11 +2,15 @@ name: Release Obsidian plugin
 
 on:
     push:
-        tags:
-            - '*'
+        branches: [main]
+    workflow_dispatch:
+
+concurrency:
+    group: release-${{ github.ref }}
+    cancel-in-progress: false
 
 jobs:
-    build:
+    release:
         runs-on: ubuntu-latest
         permissions:
             contents: write
@@ -15,36 +19,62 @@ jobs:
         steps:
             - uses: actions/checkout@v6
 
+            - name: Read version from manifest
+              id: manifest
+              run: |
+                  version="$(node -p "require('./manifest.json').version")"
+                  echo "version=$version" >> "$GITHUB_OUTPUT"
+                  echo "Manifest version: $version"
+
+            - name: Check whether release already exists
+              id: check
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  TAG: ${{ steps.manifest.outputs.version }}
+              run: |
+                  if gh release view "$TAG" >/dev/null 2>&1; then
+                      echo "exists=true" >> "$GITHUB_OUTPUT"
+                      echo "::notice::Release $TAG already exists - nothing to do."
+                  else
+                      echo "exists=false" >> "$GITHUB_OUTPUT"
+                  fi
+
             - name: Use Node.js
+              if: steps.check.outputs.exists == 'false'
               uses: actions/setup-node@v6
               with:
                   node-version: 24
                   cache: 'npm'
 
             - name: Build plugin
+              if: steps.check.outputs.exists == 'false'
               run: |
                   npm ci
                   npm run build
 
             - name: Check for optional styles
+              if: steps.check.outputs.exists == 'false'
               id: styles
               run: |
                   [ -f styles.css ] && echo "exists=true" >> "$GITHUB_OUTPUT" || echo "exists=false" >> "$GITHUB_OUTPUT"
 
             - name: Attest build provenance
+              if: steps.check.outputs.exists == 'false'
               uses: actions/attest@v4
               with:
                   subject-path: |
                       main.js
                       ${{ steps.styles.outputs.exists == 'true' && 'styles.css' || '' }}
 
-            - name: Create release
+            - name: Create draft release
+              if: steps.check.outputs.exists == 'false'
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  TAG: ${{ steps.manifest.outputs.version }}
               run: |
-                  tag="${GITHUB_REF#refs/tags/}"
-
-                  gh release create "$tag" \
-                    --title="$tag" \
+                  gh release create "$TAG" \
+                    --title="$TAG" \
+                    --target="$GITHUB_SHA" \
                     --draft \
+                    --generate-notes \
                     main.js manifest.json ${{ steps.styles.outputs.exists == 'true' && 'styles.css' || '' }}
