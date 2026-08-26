@@ -1,0 +1,5 @@
+{
+  "src/tomeExportDocument.ts::buildExportDocument": 78,
+  "src/tomeImageOptimizer.ts::optimizeImage": 54,
+  "src/tomePdfPrinter.ts::printHtmlToPdf": 61
+}

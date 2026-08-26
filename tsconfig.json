@@ -1,0 +1,37 @@
+{
+	"compilerOptions": {
+		"inlineSourceMap": true,
+		"inlineSources": true,
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"target": "ES2021",
+		"strict": true,
+		"noImplicitReturns": true,
+		"noFallthroughCasesInSwitch": true,
+		"noUncheckedIndexedAccess": true,
+		// Everything this plugin subclasses belongs to Obsidian - Plugin,
+		// PluginSettingTab - so a method renamed upstream would otherwise become a
+		// new method of ours that nothing calls, silently. That is not
+		// hypothetical here: PluginSettingTab.display() stopped being the only
+		// entry point in 1.13, and this is the flag that makes such a change a
+		// compile error rather than a settings pane that quietly renders nothing.
+		//
+		// `noPropertyAccessFromIndexSignature`, which the client also sets, is
+		// deliberately absent: it costs 104 errors, all of them `record.name`
+		// becoming `record['name']` while reading untyped YAML. Every one of those
+		// reads is already type-guarded, so the brackets would buy noise rather
+		// than safety.
+		"noImplicitOverride": true,
+		"isolatedModules": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"allowSyntheticDefaultImports": true,
+		"lib": ["ES2021", "DOM"]
+	},
+	// `scripts/*.d.mts` types the plain-ESM build scripts so the tests can import
+	// them. It must be `.d.mts`, not `.d.ts`: an import of `ratchet.mjs` only
+	// matches a declaration with the matching extension. Declarations emit
+	// nothing, and esbuild only follows `src/main.ts`, so nothing here reaches
+	// the shipped bundle.
+	"include": ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.d.mts"]
+}
