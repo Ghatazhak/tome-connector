@@ -26,7 +26,8 @@ Reload Obsidian, then enable **Tome Connector** under
 
 Open **Settings -> Tome Connector** and configure:
 
-- **Tome base URL**: The server origin, such as `https://tome.example.com`.
+- **Tome base URL**: The server origin. Defaults to the hosted service at
+  `https://tomegaming.com/`; change it only if you run your own Tome server.
   Do not include an API action path.
 - **API key**: Select or create an entry in Obsidian SecretStorage. The key is
   sent in the `X-Api-Key` header and is not stored in the plugin's `data.json`.

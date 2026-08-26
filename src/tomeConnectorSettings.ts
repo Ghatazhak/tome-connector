@@ -6,6 +6,18 @@ import { syncTagHint } from './syncVaultCommands';
 import { downscaleWarning } from './tomeImageDownscale';
 
 export interface TomeConnectorSettings {
+	/**
+	 * Origin the API routes are appended to.
+	 *
+	 * Defaults to the hosted service rather than to empty. An empty default made
+	 * a fresh install inert - every command warned that no base URL was set - and
+	 * the overwhelming majority of installs are pointing at the same host anyway.
+	 * Self-hosters overwrite it, which is one edit against every other install
+	 * needing one.
+	 *
+	 * `loadSettings` merges over `DEFAULT_SETTINGS`, so a vault that already
+	 * stored a value keeps it, including a deliberately empty one.
+	 */
 	baseUrl: string;
 	/** Name of the secret (in Obsidian's SecretStorage) that holds the API key. */
 	apiKeySecretName: string;
@@ -32,7 +44,7 @@ export interface TomeConnectorSettings {
 }
 
 export const DEFAULT_SETTINGS: TomeConnectorSettings = {
-	baseUrl: '',
+	baseUrl: 'https://tomegaming.com/',
 	apiKeySecretName: '',
 	campaignId: '',
 	syncTag: '',
@@ -75,7 +87,7 @@ export class TomeConnectorSettingTab extends PluginSettingTab {
 		return [
 			{
 				name: 'Tome base URL',
-				desc: 'The base URL of your Tome server. Code block payloads are posted to this base URL plus the appropriate API route when you select "Send to Tome".',
+				desc: 'The base URL of your Tome server, defaulting to the hosted service at https://tomegaming.com/. Change it if you run your own. Code block payloads are posted to this base URL plus the appropriate API route when you select "Send to Tome".',
 				aliases: ['server', 'url', 'endpoint', 'host'],
 				render: (setting) => this.renderBaseUrl(setting),
 			},
