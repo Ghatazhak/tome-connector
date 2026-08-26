@@ -172,6 +172,30 @@ not be committed.
 
 ## Release
 
-Keep the versions in `package.json`, `manifest.json`, and `versions.json`
-aligned. Create a release tag matching the version exactly, without a `v`
-prefix, and attach the three release artifacts individually.
+Releases are driven by the version in `manifest.json`. Bump it with `npm
+version`, which updates `package.json`, `manifest.json`, and `versions.json`
+together so the three stay aligned:
+
+```bash
+npm version patch    # or minor / major
+git push --follow-tags
+```
+
+On every push to `main`, the `Release Obsidian plugin` workflow reads the
+version from `manifest.json` and checks whether a release with that tag already
+exists. If one does, the workflow stops there, so ordinary pushes that do not
+change the version are a no-op. Otherwise it builds the plugin, attests build
+provenance, and opens a **draft** release tagged with the version, with
+`main.js`, `manifest.json`, and `styles.css` attached as assets.
+
+Publish that draft to finish the release. Two rules matter for the Obsidian
+plugin review:
+
+- The tag must match the version exactly, with no `v` prefix.
+- `main.js` and `manifest.json` must be attached to the release as assets. The
+  review bot only reads published releases, so a draft holding the assets will
+  be reported as missing them.
+
+Never create a second release reusing a tag that already exists. GitHub allows a
+draft to share a tag name with a published release, and the review bot will read
+whichever one is published, even if it has no assets.
