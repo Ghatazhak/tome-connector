@@ -152,6 +152,19 @@ listed in the developer console.
 Images a note references by URL are left as URLs and are fetched by the PDF
 renderer at print time, exactly as the reading view already fetches them.
 
+A vault, tag, or folder send begins by enumerating the vault.
+`getMarkdownFiles()` returns every markdown path in the vault, and a folder or
+tag scope filters that list before anything is read; notes left in scope are
+then read with `cachedRead` to find what can be sent. This runs only when you
+invoke one of those commands, and it stops at a confirmation modal that names
+what it found - nothing leaves the machine until you approve it.
+
+The file list itself is not transmitted. A note's vault path is dropped when its
+library entry is built, so a local path never reaches the server; paths appear
+only in the local progress and failure reports. A content-source import uses
+each note's filename as the entry key, so the name travels but the folder it sat
+in does not.
+
 Payloads and API keys are not written to the developer console. Failed server
 responses may be logged to help diagnose API errors.
 
