@@ -95,9 +95,9 @@ export async function printHtmlToPdf(request: PrintRequest): Promise<Uint8Array>
 		// `webview` is an Electron tag and so is absent from
 		// HTMLElementTagNameMap; the assertion only satisfies `createEl`'s
 		// generic, and the element actually created is a real <webview>.
-		const webview = createEl(
-			'webview' as 'div',
-		) as unknown as PrintableWebview;
+		const webview = createEl('webview' as 'div', {
+			cls: 'tome-print-webview',
+		}) as unknown as PrintableWebview;
 		// An app:// origin, so the stylesheet and font URLs copied out of the
 		// host's <head> resolve inside the guest.
 		webview.src = 'app://obsidian.md/help.html';

@@ -79,7 +79,16 @@ function renderChoices<TTo extends string>(
 		const pill = group.createEl('label', { cls: 'tome-connector-adventure-choice' });
 		const input = pill.createEl('input', { attr: { type: 'radio', name } });
 		input.checked = option.value === current;
-		input.addEventListener('change', () => onChange(option.value));
+		pill.toggleClass('is-checked', input.checked);
+		// Checking a radio unchecks its group sibling without an event on the
+		// loser, so the class is cleared across the whole group here rather
+		// than each pill tending its own.
+		input.addEventListener('change', () => {
+			for (const sibling of Array.from(group.children)) {
+				sibling.toggleClass('is-checked', sibling === pill);
+			}
+			onChange(option.value);
+		});
 		pill.createSpan({ text: option.label });
 	}
 }
