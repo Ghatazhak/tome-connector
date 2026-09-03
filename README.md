@@ -95,8 +95,16 @@ Example JSON encounter:
 
 On creation, Tome Connector writes the returned ID back into encounter, NPC,
 map, and prop source blocks. Player-character IDs are stored in the note's
-`tome_id` frontmatter property. Later sends use those IDs where the API supports
-identity-based updates.
+frontmatter: `tome_id` for a character sent to a campaign, and `tome_vault_id`
+for one sent to **My Characters**. They are separate properties because a note
+can be sent to both, and those are two characters in Tome that do not sync to
+each other. Later sends use those IDs where the API supports identity-based
+updates.
+
+A player-character send asks where it should go before it sends: **My
+Characters**, the account's own shelf, or any campaign the API key's account
+owns. Re-sending the same note updates the character it made the first time
+rather than adding another, on either destination.
 
 ### Send a folder as a PDF reference
 
