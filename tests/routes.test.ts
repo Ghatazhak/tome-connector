@@ -18,6 +18,7 @@ describe('TOME_ROUTES', () => {
 			addEquipmentItem: '/api/EquipmentItems/AddEquipmentItem',
 			addSpell: '/api/Spells/AddSpell',
 			addPlayerCharacter: '/api/playercharacters/addplayercharacter',
+			importVaultCharacter: '/api/vault/characters/import',
 			addProp: '/api/props/addprop',
 			uploadReference: '/api/references/uploadreference',
 			importContentSource: '/api/ContentSources/import',

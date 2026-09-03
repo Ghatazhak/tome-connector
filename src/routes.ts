@@ -35,6 +35,15 @@ export const TOME_ROUTES = {
 	addSpell: '/api/Spells/AddSpell',
 	/** `PlayerCharactersController.AddPlayerCharacter` */
 	addPlayerCharacter: '/api/playercharacters/addplayercharacter',
+	/**
+	 * `CharacterVaultController.Import`.
+	 *
+	 * The account's own shelf rather than a campaign library, so a send to it carries no
+	 * `X-Campaign-Id` header at all - that absence is what makes the request account-scoped.
+	 * Like `importContentSource` below, the trailing segment is a literal route rather than an
+	 * action name.
+	 */
+	importVaultCharacter: '/api/vault/characters/import',
 	/** `PropsController.AddProp` */
 	addProp: '/api/props/addprop',
 	/** `ReferencesController.UploadReference` */

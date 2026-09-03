@@ -24,6 +24,19 @@ export interface TomeConnectorSettings {
 	/** Last campaign selected in a send modal; the server remains the source of the list. */
 	campaignId: string;
 	/**
+	 * Where the "Import as PC to Tome" picker opens: `'vault'` for the account's own shelf, or
+	 * anything else for the campaign named by {@link campaignId}.
+	 *
+	 * Its own field rather than a sentinel written into `campaignId`, because that one is read
+	 * by seven other send paths - images, encounters, folders, maps, statblocks, props - none of
+	 * which has a vault to send to, and all of which need it to keep meaning "a campaign".
+	 *
+	 * Not on the settings tab. It is a memory of the last choice, the way `campaignId` is, and
+	 * not a preference anybody would set in advance. Defaults to `'campaign'` so `loadSettings`'
+	 * merge back-fills an existing install to the behaviour it already had.
+	 */
+	characterDestination: string;
+	/**
 	 * Tag that marks a note for the "send notes with the sync tag" command.
 	 *
 	 * Empty by default, and the command hides itself while it is - a default of
@@ -47,6 +60,7 @@ export const DEFAULT_SETTINGS: TomeConnectorSettings = {
 	baseUrl: 'https://tomegaming.com/',
 	apiKeySecretName: '',
 	campaignId: '',
+	characterDestination: 'campaign',
 	syncTag: '',
 	downscaleImages: true,
 };

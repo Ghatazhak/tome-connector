@@ -6,13 +6,13 @@ import { getApiKey } from './tomeConnectorSettings';
 import { stripMarkdown } from './tomeMarkdownSanitizer';
 import { parsePcSheet, type PcSheet } from './tomePcSheetParser';
 import { TOME_ROUTES } from './routes';
-import { chooseCampaign } from './tomeCampaigns';
+import { chooseCharacterDestination } from './chooseCharacterDestination';
+import { frontmatterKeyFor, type CharacterDestination } from './characterDestination';
 
 // Frontmatter property that gates whether the button is shown at all. Its
 // presence is taken as confirmation that this note is a D&D Beyond character
 // sheet.
 const REQUIRED_PROPERTY = 'dndbeyond_id';
-const TOME_ID_PROPERTY = 'tome_id';
 
 // Only these frontmatter properties are ever read from the note's *frontmatter*
 // - anything else present there is ignored. Each is mapped onto the exact shape
@@ -240,9 +240,38 @@ function resolveWikilinkPath(
  * title-bar button and the context menu item.
  */
 async function sendCharacter(plugin: TomeConnectorPlugin, file: TFile): Promise<void> {
-	const campaignId = await chooseCampaign(plugin);
-	if (campaignId === null) return;
+	const destination = await chooseCharacterDestination(plugin);
+	if (destination === null) return;
 
+	const id = await sendJsonToTome(
+		joinUrl(plugin.settings.baseUrl, routeFor(destination)),
+		await buildCharacterPayload(plugin, file),
+		getApiKey(plugin),
+		// Left undefined for the vault, which is what makes the request account-scoped:
+		// `requestHeaders` omits `X-Campaign-Id` when it is falsy, and the server's API-key
+		// handler adds the campaign claim only when the header is there. Passing the remembered
+		// campaign "harmlessly" would be worse than useless - a campaign the key owner no longer
+		// owns fails the whole request with a 401, on an endpoint that reads no campaign at all.
+		destination.kind === 'campaign' ? destination.campaignId : undefined,
+	);
+	if (id !== null) {
+		await writeBackId(plugin, file, destination, id);
+	}
+}
+
+function routeFor(destination: CharacterDestination): string {
+	return destination.kind === 'vault'
+		? TOME_ROUTES.importVaultCharacter
+		: TOME_ROUTES.addPlayerCharacter;
+}
+
+/**
+ * Reads the note's frontmatter and body and maps them onto the Tome `PlayerCharacter` shape.
+ *
+ * The same payload whichever destination it is bound for - both endpoints take the same DTO,
+ * and the vault's create derives its game system rather than reading one off the sheet.
+ */
+async function buildCharacterPayload(plugin: TomeConnectorPlugin, file: TFile): Promise<string> {
 	const frontmatter =
 		plugin.app.metadataCache.getFileCache(file)?.frontmatter ?? {};
 
@@ -269,21 +298,26 @@ async function sendCharacter(plugin: TomeConnectorPlugin, file: TFile): Promise<
 	// `cachedRead` rather than `read`: the body is only being parsed, and
 	// the cache is already warm for the note the user is looking at.
 	const sheet = parsePcSheet(await plugin.app.vault.cachedRead(file));
-	const payload = mapToPlayerCharacterPayload(resolved, sheet);
-	const id = await sendJsonToTome(
-		joinUrl(plugin.settings.baseUrl, TOME_ROUTES.addPlayerCharacter),
-		JSON.stringify(payload),
-		getApiKey(plugin),
-		campaignId,
+	return JSON.stringify(mapToPlayerCharacterPayload(resolved, sheet));
+}
+
+/**
+ * Records the id under the property that names where it went, leaving the other alone - a note
+ * sent to both destinations keeps both ids.
+ */
+async function writeBackId(
+	plugin: TomeConnectorPlugin,
+	file: TFile,
+	destination: CharacterDestination,
+	id: string,
+): Promise<void> {
+	const property = frontmatterKeyFor(destination);
+	await plugin.app.fileManager.processFrontMatter(
+		file,
+		(frontmatter: Record<string, unknown>) => {
+			frontmatter[property] = id;
+		},
 	);
-	if (id !== null) {
-		await plugin.app.fileManager.processFrontMatter(
-			file,
-			(frontmatter: Record<string, unknown>) => {
-				frontmatter[TOME_ID_PROPERTY] = id;
-			},
-		);
-	}
 }
 
 async function handleMenuClick(plugin: TomeConnectorPlugin, file: TFile): Promise<void> {

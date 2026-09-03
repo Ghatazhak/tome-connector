@@ -21,10 +21,20 @@ function isCampaign(value: unknown): value is TomeCampaign {
 	return typeof candidate.id === 'string' && typeof candidate.name === 'string';
 }
 
-/** Loads only the campaigns owned by the account behind the configured API key. */
-export async function loadCampaignChoice(
+/**
+ * The campaigns owned by the account behind the configured API key, or null when the fetch
+ * itself could not happen - no base URL, no key, a non-2xx, an unreadable body. Every one of
+ * those has already been reported to the user by the time this returns.
+ *
+ * <b>An empty list is a success, not a failure.</b> That distinction is the whole reason this
+ * is separate from {@link loadCampaignChoice}: for the six senders that can only target a
+ * campaign, having none is a dead end worth saying so about, which is what that function still
+ * does. For the character send it is an ordinary state - a player who keeps characters and has
+ * never run a table - and the vault is exactly where their import should go.
+ */
+export async function loadCampaigns(
 	plugin: TomeConnectorPlugin,
-): Promise<CampaignChoice | null> {
+): Promise<TomeCampaign[] | null> {
 	const baseUrl = plugin.settings.baseUrl.trim();
 	if (baseUrl === '') {
 		new Notice('Tome connector: set a base URL in the plugin settings first.');
@@ -53,15 +63,7 @@ export async function loadCampaignChoice(
 		if (!Array.isArray(parsed) || !parsed.every(isCampaign)) {
 			throw new Error('The server returned an invalid campaign list.');
 		}
-		if (parsed.length === 0) {
-			new Notice('Tome connector: this account has no campaigns. Create one in Tome first.');
-			return null;
-		}
-
-		const remembered = parsed.some((campaign) => campaign.id === plugin.settings.campaignId)
-			? plugin.settings.campaignId
-			: parsed[0]!.id;
-		return { campaigns: parsed, campaignId: remembered };
+		return parsed;
 	} catch (error) {
 		console.error('Tome Connector: failed to load campaigns', error);
 		new Notice(
@@ -69,6 +71,24 @@ export async function loadCampaignChoice(
 		);
 		return null;
 	}
+}
+
+/** Loads only the campaigns owned by the account behind the configured API key. */
+export async function loadCampaignChoice(
+	plugin: TomeConnectorPlugin,
+): Promise<CampaignChoice | null> {
+	const campaigns = await loadCampaigns(plugin);
+	if (campaigns === null) return null;
+
+	if (campaigns.length === 0) {
+		new Notice('Tome connector: this account has no campaigns. Create one in Tome first.');
+		return null;
+	}
+
+	const remembered = campaigns.some((campaign) => campaign.id === plugin.settings.campaignId)
+		? plugin.settings.campaignId
+		: campaigns[0]!.id;
+	return { campaigns, campaignId: remembered };
 }
 
 /** Renders the shared campaign row at the top of every send/review modal. */
