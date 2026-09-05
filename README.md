@@ -106,6 +106,26 @@ Characters**, the account's own shelf, or any campaign the API key's account
 owns. Re-sending the same note updates the character it made the first time
 rather than adding another, on either destination.
 
+#### Character note properties
+
+A player-character send reads these frontmatter properties, and no others: `name`, `race`,
+`class`, `level`, `background`, `alignment`, `gender`, `xp`, `hp_max`, `hp_current`,
+`hp_temp`, `ac`, `speed`, `proficiency_bonus`, the six ability scores (`str` to `cha`),
+`dndbeyond_id`, `image`, and `classes`. Everything else on the sheet - proficiencies,
+attacks, spells, features, inventory - is read from the tables in the note body.
+
+`class` is free text and is sent as written: `Barbarian 3`, `Rogue (Thief)` or
+`Fighter (Champion) 3 / Rogue 2` are all fine, and Tome reads the classes out of the line
+itself. A character with more than one class needs nothing further. The optional `classes`
+property is for a note that wants to name each class explicitly, as a list of
+`{ class, subclass, level }` objects or of strings written the way Tome prints them:
+
+```yaml
+classes:
+  - { class: Fighter, subclass: Champion, level: 3 }
+  - Wizard 2
+```
+
 ### Send a folder as a PDF reference
 
 Right-click a folder in the File Explorer and select **Send to Tome**. Every

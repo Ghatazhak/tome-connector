@@ -5,6 +5,7 @@ import { joinUrl, sendJsonToTome } from './tomeApiClient';
 import { getApiKey } from './tomeConnectorSettings';
 import { stripMarkdown } from './tomeMarkdownSanitizer';
 import { parsePcSheet, type PcSheet } from './tomePcSheetParser';
+import { CLASSES_PROPERTY, classesFromFrontmatter } from './pcClassLine';
 import { TOME_ROUTES } from './routes';
 import { chooseCharacterDestination } from './chooseCharacterDestination';
 import { frontmatterKeyFor, type CharacterDestination } from './characterDestination';
@@ -45,6 +46,10 @@ const ALLOWED_PROPERTIES = [
 	'cha',
 	'dndbeyond_id',
 	'image',
+	// Optional, and not something the exporter writes: one entry per class with its own
+	// level, for a character with more than one. Without it the server reads the classes
+	// out of `class` itself - see `pcClassLine`.
+	CLASSES_PROPERTY,
 ] as const;
 
 const BUTTON_ICON = 'upload-cloud';
@@ -205,6 +210,9 @@ function mapToPlayerCharacterPayload(
 		Cha: toIntSafe(frontmatter.cha) ?? 0,
 		DndBeyondId: toIntSafe(frontmatter.dndbeyond_id),
 		Image: toStringSafe(frontmatter.image),
+		// Left off the payload when the note has no `classes` property, so the server derives
+		// the list from the class line the way it does for every note the exporter writes.
+		Classes: classesFromFrontmatter(frontmatter),
 	};
 
 	return payload;
