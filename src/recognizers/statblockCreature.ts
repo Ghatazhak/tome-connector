@@ -14,6 +14,7 @@
  */
 
 import { stripMarkdownFromString } from '../tomeMarkdownSanitizer';
+import { isPf2eCreature, mapToPf2eCreature, type Pf2eCreature } from './pf2eCreature';
 
 /** The `NonPlayerCharacter` model's PascalCase shape, as the endpoint wants it. */
 export interface NamedAbility {
@@ -165,9 +166,13 @@ export function normalizeSkillSaves(value: unknown): unknown {
  *
  * `stats` is the test rather than `name`, because every block has a name and
  * only a real statblock has six ability scores.
+ *
+ * A Pathfinder block carries six ability *modifiers* under `attributes` instead, and
+ * `isPf2eCreature` is the same test said in that vocabulary. Both count, because a
+ * Pathfinder note that stands alone is no more in need of the bestiary than a D&D one.
  */
 export function hasInlineStats(record: Record<string, unknown>): boolean {
-	return toStatsArray(record.stats) !== undefined;
+	return toStatsArray(record.stats) !== undefined || isPf2eCreature(record);
 }
 
 /**
@@ -247,11 +252,49 @@ function legendaryActions(record: Record<string, unknown>): NamedAbility[] {
 }
 
 /**
+ * The Pathfinder half of `mapToNpcPayload`, kept beside it rather than in the other file
+ * so the one function callers reach for is the one that decides.
+ *
+ * `HP` is a string on the wire because the 5e model types it as one, and it is filled here
+ * as well as in the bag: the tracker reads the neutral column to place a token with the
+ * right hit points, and a Pathfinder creature arriving with an empty one would land on the
+ * board untracked.
+ */
+function mapToPf2eNpcPayload(record: Record<string, unknown>): NpcPayload {
+	const pf2e: Pf2eCreature = mapToPf2eCreature(record);
+	const payload: NpcPayload = {
+		Image: optionalString(record.image) ?? '',
+		Name: pf2e.name,
+		Size: pf2e.size,
+		AC: pf2e.ac,
+		HP: String(pf2e.hp),
+		// The level, in the column the 5e half puts a challenge rating in. Both are the
+		// library's difficulty axis, and the client draws whichever the campaign's ruleset
+		// names - see `ruleset-profile.ts`'s `creatureLevelAxis`.
+		CR: String(pf2e.level),
+		Pf2e: pf2e,
+	};
+
+	const id = record.id;
+	if (typeof id === 'string' && UUID_PATTERN.test(id)) {
+		payload.Id = id;
+	}
+
+	return payload;
+}
+
+/**
  * Maps a resolved creature onto the endpoint's `NonPlayerCharacter` model,
  * dropping the fields the server does not model (`layout`, `fage_stats`,
  * `bestiary`, `modifier`, `source`).
  */
 export function mapToNpcPayload(record: Record<string, unknown>): NpcPayload {
+	// A Pathfinder creature is a different stat block, not a differently-filled one: its
+	// numbers go in the `Pf2e` bag and the 5e columns stay at their defaults, which is the
+	// same division the server's own importer makes. Only the neutral fields - the name,
+	// the picture, the size the board places a token by - are filled on both.
+	if (isPf2eCreature(record)) return mapToPf2eNpcPayload(record);
+
 	const payload: NpcPayload = {
 		Image: optionalString(record.image) ?? '',
 		Name: optionalString(record.name) ?? '',
