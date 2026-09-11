@@ -7,8 +7,20 @@ or the character sync action.
 ## Requirements
 
 - Obsidian 1.11.4 or later
-- A reachable Tome server
+- A reachable Tome server from 11 September 2026 or later (see below)
 - A Tome API key for the account receiving the content
+
+### Server compatibility
+
+From version 1.1.0 the connector sends every creature, character, spell, magic
+item and piece of equipment with its rules inside one named record - `dnd5e`
+for D&D 5e, `pf2e` for Pathfinder 2e - beside the parts that belong to no rule
+set, such as the name, the picture and the D&D Beyond ID. That is the only
+shape a current Tome server accepts: it refuses the flat fields earlier
+connectors sent, saying the note came from an out-of-date connector.
+
+A Tome server older than that change does not read the named record, so
+1.1.0 cannot fill in anything but names there. Keep 1.0.4 for such a server.
 
 ## Installation
 
@@ -113,6 +125,9 @@ A player-character send reads these frontmatter properties, and no others: `name
 `hp_temp`, `ac`, `speed`, `proficiency_bonus`, the six ability scores (`str` to `cha`),
 `dndbeyond_id`, `image`, and `classes`. Everything else on the sheet - proficiencies,
 attacks, spells, features, inventory - is read from the tables in the note body.
+
+A note with no `ac` sends no armour class at all, rather than zero: Tome gives a new
+character its default and leaves an existing one's armour class as it was.
 
 `class` is free text and is sent as written: `Barbarian 3`, `Rogue (Thief)` or
 `Fighter (Champion) 3 / Rogue 2` are all fine, and Tome reads the classes out of the line
