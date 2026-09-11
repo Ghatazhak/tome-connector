@@ -9,6 +9,10 @@
  * rendered markdown tables and headings the exporter writes. This module reads
  * that body.
  *
+ * Every field is named and cased as the server's `Dnd5eCharacter` record pins it,
+ * because `playerCharacterBody` spreads the result straight into the character's
+ * `dnd5e` bag.
+ *
  * Two properties of the exporter's output shape everything here:
  *
  * - A section is omitted entirely when it would be empty. A barbarian's note has
@@ -21,80 +25,80 @@
 /** One of the six saving throws, as the sheet reports it. */
 export interface PcSave {
 	/** Ability abbreviation, upper case: `STR`, `DEX`, … */
-	Ability: string;
+	ability: string;
 	/** Total bonus including proficiency, e.g. `7` for "+7". */
-	Bonus: number;
-	Proficient: boolean;
+	bonus: number;
+	proficient: boolean;
 }
 
 /** One row of the skills table. The exporter lists all eighteen, proficient or not. */
 export interface PcSkill {
-	Name: string;
+	name: string;
 	/** The governing ability, upper case. */
-	Ability: string;
-	Bonus: number;
-	Proficient: boolean;
-	Expertise: boolean;
+	ability: string;
+	bonus: number;
+	proficient: boolean;
+	expertise: boolean;
 }
 
 /** A row of the "Actions & Attacks" table. Values stay strings - `Damage` is as often `2d6+4` as a number. */
 export interface PcAttack {
-	Name: string;
-	AttackBonus: string;
-	Damage: string;
-	Range: string;
-	Notes: string;
+	name: string;
+	attackBonus: string;
+	damage: string;
+	range: string;
+	notes: string;
 }
 
 export interface PcSpell {
-	Name: string;
+	name: string;
 	/** 0 for a cantrip, otherwise the spell level. */
-	Level: number;
-	School: string;
-	CastTime: string;
-	Range: string;
-	Concentration: boolean;
-	Prepared: boolean;
+	level: number;
+	school: string;
+	castTime: string;
+	range: string;
+	concentration: boolean;
+	prepared: boolean;
 }
 
 /** A feature, feat, or racial trait, kept under the sub-heading it was listed beneath. */
 export interface PcFeature {
 	/** `Racial Traits`, `Feats`, `Character Traits`, … whatever the note used. */
-	Category: string;
-	Name: string;
-	Desc: string;
+	category: string;
+	name: string;
+	desc: string;
 }
 
 export interface PcItem {
-	Name: string;
-	Quantity: number;
+	name: string;
+	quantity: number;
 	/** As printed, e.g. `1.0 lbs` - the exporter's units, not ours to reinterpret. */
-	Weight: string;
-	Equipped: boolean;
+	weight: string;
+	equipped: boolean;
 }
 
 export interface PcCurrency {
-	Cp: number;
-	Sp: number;
-	Ep: number;
-	Gp: number;
-	Pp: number;
+	cp: number;
+	sp: number;
+	ep: number;
+	gp: number;
+	pp: number;
 }
 
 /** Everything the note body has to offer. Every field is optional or empty-by-default. */
 export interface PcSheet {
-	Initiative?: number;
-	Saves: PcSave[];
-	Skills: PcSkill[];
-	Attacks: PcAttack[];
-	Spells: PcSpell[];
-	Features: PcFeature[];
-	Equipment: PcItem[];
-	Currency?: PcCurrency;
-	Languages?: string;
-	ArmorProficiencies?: string;
-	WeaponProficiencies?: string;
-	ToolProficiencies?: string;
+	initiative?: number;
+	saves: PcSave[];
+	skills: PcSkill[];
+	attacks: PcAttack[];
+	spells: PcSpell[];
+	features: PcFeature[];
+	equipment: PcItem[];
+	currency?: PcCurrency;
+	languages?: string;
+	armorProficiencies?: string;
+	weaponProficiencies?: string;
+	toolProficiencies?: string;
 }
 
 /**
@@ -316,9 +320,9 @@ function parseSaves(section: Section | undefined): PcSave[] {
 		const bonus = toIntSafe(cell);
 		if (bonus === undefined) return;
 		saves.push({
-			Ability: ability,
-			Bonus: bonus,
-			Proficient: cell.includes(PROFICIENT_MARK) || cell.includes(EXPERTISE_MARK),
+			ability: ability,
+			bonus: bonus,
+			proficient: cell.includes(PROFICIENT_MARK) || cell.includes(EXPERTISE_MARK),
 		});
 	});
 	return saves;
@@ -342,11 +346,11 @@ function parseSkills(section: Section | undefined): PcSkill[] {
 		if (bonus === undefined) continue;
 		const expertise = rawName.includes(EXPERTISE_MARK);
 		skills.push({
-			Name: name,
-			Ability: cellAt(row, abilityCol).toUpperCase(),
-			Bonus: bonus,
-			Proficient: expertise || rawName.includes(PROFICIENT_MARK),
-			Expertise: expertise,
+			name: name,
+			ability: cellAt(row, abilityCol).toUpperCase(),
+			bonus: bonus,
+			proficient: expertise || rawName.includes(PROFICIENT_MARK),
+			expertise: expertise,
 		});
 	}
 	return skills;
@@ -368,11 +372,11 @@ function parseAttacks(section: Section | undefined): PcAttack[] {
 		const name = stripLeadingSymbols(cellAt(row, nameCol));
 		if (name === '') continue;
 		attacks.push({
-			Name: name,
-			AttackBonus: cellAt(row, bonusCol),
-			Damage: cellAt(row, damageCol),
-			Range: cellAt(row, rangeCol),
-			Notes: cellAt(row, notesCol),
+			name: name,
+			attackBonus: cellAt(row, bonusCol),
+			damage: cellAt(row, damageCol),
+			range: cellAt(row, rangeCol),
+			notes: cellAt(row, notesCol),
 		});
 	}
 	return attacks;
@@ -419,13 +423,13 @@ function parseSpells(section: Section | undefined): PcSpell[] {
 			if (seen.has(key)) continue;
 			seen.add(key);
 			spells.push({
-				Name: name,
-				Level: level,
-				School: cellAt(row, schoolCol),
-				CastTime: cellAt(row, castCol),
-				Range: cellAt(row, rangeCol),
-				Concentration: isTicked(cellAt(row, concCol)),
-				Prepared: isTicked(cellAt(row, preparedCol)),
+				name: name,
+				level: level,
+				school: cellAt(row, schoolCol),
+				castTime: cellAt(row, castCol),
+				range: cellAt(row, rangeCol),
+				concentration: isTicked(cellAt(row, concCol)),
+				prepared: isTicked(cellAt(row, preparedCol)),
 			});
 		}
 	}
@@ -461,9 +465,9 @@ function parseFeatures(section: Section | undefined): PcFeature[] {
 				.replace(/\n{3,}/g, '\n\n')
 				.trim();
 			features.push({
-				Category: group.title,
-				Name: name,
-				Desc: desc.length > MAX_FEATURE_DESC ? `${desc.slice(0, MAX_FEATURE_DESC).trimEnd()}…` : desc,
+				category: group.title,
+				name: name,
+				desc: desc.length > MAX_FEATURE_DESC ? `${desc.slice(0, MAX_FEATURE_DESC).trimEnd()}…` : desc,
 			});
 			name = null;
 			body = [];
@@ -500,10 +504,10 @@ function parseEquipment(section: Section | undefined): PcItem[] {
 		const name = stripLeadingSymbols(cellAt(row, nameCol));
 		if (name === '') continue;
 		items.push({
-			Name: name,
-			Quantity: toIntSafe(cellAt(row, qtyCol)) ?? 1,
-			Weight: cellAt(row, weightCol),
-			Equipped: isTicked(cellAt(row, equippedCol)),
+			name: name,
+			quantity: toIntSafe(cellAt(row, qtyCol)) ?? 1,
+			weight: cellAt(row, weightCol),
+			equipped: isTicked(cellAt(row, equippedCol)),
 		});
 	}
 	return items;
@@ -520,11 +524,11 @@ function parseCurrency(section: Section | undefined): PcCurrency | undefined {
 		toIntSafe(cellAt(row, columnIndex(table.headers, label))) ?? 0;
 
 	const currency: PcCurrency = {
-		Cp: coin('cp'),
-		Sp: coin('sp'),
-		Ep: coin('ep'),
-		Gp: coin('gp'),
-		Pp: coin('pp'),
+		cp: coin('cp'),
+		sp: coin('sp'),
+		ep: coin('ep'),
+		gp: coin('gp'),
+		pp: coin('pp'),
 	};
 	// An all-zero purse is the exporter's default for a character who has never
 	// tracked coin; storing it would put an empty Currency card on every sheet.
@@ -553,17 +557,17 @@ export function parsePcSheet(content: string): PcSheet {
 	const proficiencies = parseLabelledLines(findSection(sections, 'Proficiencies & Languages'));
 
 	return {
-		Initiative: parseInitiative(findSection(sections, 'Core Stats')),
-		Saves: parseSaves(findSection(sections, 'Saving Throws')),
-		Skills: parseSkills(findSection(sections, 'Skills')),
-		Attacks: parseAttacks(findSection(sections, 'Actions & Attacks')),
-		Spells: parseSpells(findSection(sections, 'Spells')),
-		Features: parseFeatures(findSection(sections, 'Features & Traits')),
-		Equipment: parseEquipment(findSection(sections, 'Equipment')),
-		Currency: parseCurrency(findSection(sections, 'Currency')),
-		Languages: proficiencies.get('languages'),
-		ArmorProficiencies: proficiencies.get('armor'),
-		WeaponProficiencies: proficiencies.get('weapons'),
-		ToolProficiencies: proficiencies.get('tools'),
+		initiative: parseInitiative(findSection(sections, 'Core Stats')),
+		saves: parseSaves(findSection(sections, 'Saving Throws')),
+		skills: parseSkills(findSection(sections, 'Skills')),
+		attacks: parseAttacks(findSection(sections, 'Actions & Attacks')),
+		spells: parseSpells(findSection(sections, 'Spells')),
+		features: parseFeatures(findSection(sections, 'Features & Traits')),
+		equipment: parseEquipment(findSection(sections, 'Equipment')),
+		currency: parseCurrency(findSection(sections, 'Currency')),
+		languages: proficiencies.get('languages'),
+		armorProficiencies: proficiencies.get('armor'),
+		weaponProficiencies: proficiencies.get('weapons'),
+		toolProficiencies: proficiencies.get('tools'),
 	};
 }

@@ -165,67 +165,67 @@ describe('parsePcSheet - martial character', () => {
 	const sheet = parsePcSheet(MARTIAL_NOTE);
 
 	it('reads initiative, the one Core Stats value frontmatter lacks', () => {
-		expect(sheet.Initiative).toBe(2);
+		expect(sheet.initiative).toBe(2);
 	});
 
 	it('reads all six saves with their proficiency', () => {
-		expect(sheet.Saves).toEqual([
-			{ Ability: 'STR', Bonus: 7, Proficient: true },
-			{ Ability: 'DEX', Bonus: 2, Proficient: false },
-			{ Ability: 'CON', Bonus: 5, Proficient: true },
-			{ Ability: 'INT', Bonus: 1, Proficient: false },
-			{ Ability: 'WIS', Bonus: 1, Proficient: false },
-			{ Ability: 'CHA', Bonus: 1, Proficient: false },
+		expect(sheet.saves).toEqual([
+			{ ability: 'STR', bonus: 7, proficient: true },
+			{ ability: 'DEX', bonus: 2, proficient: false },
+			{ ability: 'CON', bonus: 5, proficient: true },
+			{ ability: 'INT', bonus: 1, proficient: false },
+			{ ability: 'WIS', bonus: 1, proficient: false },
+			{ ability: 'CHA', bonus: 1, proficient: false },
 		]);
 	});
 
 	it('separates expertise from plain proficiency', () => {
-		expect(sheet.Skills).toContainEqual({
-			Name: 'Athletics',
-			Ability: 'STR',
-			Bonus: 9,
-			Proficient: true,
-			Expertise: true,
+		expect(sheet.skills).toContainEqual({
+			name: 'Athletics',
+			ability: 'STR',
+			bonus: 9,
+			proficient: true,
+			expertise: true,
 		});
-		expect(sheet.Skills).toContainEqual({
-			Name: 'Acrobatics',
-			Ability: 'DEX',
-			Bonus: 4,
-			Proficient: true,
-			Expertise: false,
+		expect(sheet.skills).toContainEqual({
+			name: 'Acrobatics',
+			ability: 'DEX',
+			bonus: 4,
+			proficient: true,
+			expertise: false,
 		});
 	});
 
 	it('keeps unproficient skills, which is what makes a passive score correct', () => {
-		expect(sheet.Skills.find((skill) => skill.Name === 'Arcana')).toEqual({
-			Name: 'Arcana',
-			Ability: 'INT',
-			Bonus: 1,
-			Proficient: false,
-			Expertise: false,
+		expect(sheet.skills.find((skill) => skill.name === 'Arcana')).toEqual({
+			name: 'Arcana',
+			ability: 'INT',
+			bonus: 1,
+			proficient: false,
+			expertise: false,
 		});
 	});
 
 	it('reads the labelled proficiency lines', () => {
-		expect(sheet.Languages).toBe('Common, Dwarvish, Goblin');
-		expect(sheet.ArmorProficiencies).toBe('Light Armor, Medium Armor');
-		expect(sheet.WeaponProficiencies).toBe('Simple Weapons, Martial Weapons');
+		expect(sheet.languages).toBe('Common, Dwarvish, Goblin');
+		expect(sheet.armorProficiencies).toBe('Light Armor, Medium Armor');
+		expect(sheet.weaponProficiencies).toBe('Simple Weapons, Martial Weapons');
 	});
 
 	it('reads currency', () => {
-		expect(sheet.Currency).toEqual({ Cp: 10, Sp: 54, Ep: 0, Gp: 66, Pp: 0 });
+		expect(sheet.currency).toEqual({ cp: 10, sp: 54, ep: 0, gp: 66, pp: 0 });
 	});
 
 	it('strips the emoji badge from an attack name', () => {
-		expect(sheet.Attacks).toEqual([
-			{ Name: 'Unarmed Strike', AttackBonus: '+7', Damage: '6', Range: '5 ft', Notes: 'Bludgeoning' },
+		expect(sheet.attacks).toEqual([
+			{ name: 'Unarmed Strike', attackBonus: '+7', damage: '6', range: '5 ft', notes: 'Bludgeoning' },
 		]);
 	});
 
 	it('returns empty lists for the sections a martial character has none of', () => {
-		expect(sheet.Spells).toEqual([]);
-		expect(sheet.Equipment).toEqual([]);
-		expect(sheet.Features).toEqual([]);
+		expect(sheet.spells).toEqual([]);
+		expect(sheet.equipment).toEqual([]);
+		expect(sheet.features).toEqual([]);
 	});
 });
 
@@ -233,7 +233,7 @@ describe('parsePcSheet - caster', () => {
 	const sheet = parsePcSheet(CASTER_NOTE);
 
 	it('files spells under the level of their sub-heading', () => {
-		expect(sheet.Spells.map((spell) => [spell.Name, spell.Level])).toEqual([
+		expect(sheet.spells.map((spell) => [spell.name, spell.level])).toEqual([
 			['Sorcerous Burst', 0],
 			['Ray of Frost', 0],
 			['Shield', 1],
@@ -241,42 +241,42 @@ describe('parsePcSheet - caster', () => {
 	});
 
 	it('deduplicates a spell the exporter listed twice', () => {
-		expect(sheet.Spells.filter((spell) => spell.Name === 'Ray of Frost')).toHaveLength(1);
+		expect(sheet.spells.filter((spell) => spell.name === 'Ray of Frost')).toHaveLength(1);
 	});
 
 	it('reads the prepared tick', () => {
-		expect(sheet.Spells.find((spell) => spell.Name === 'Shield')?.Prepared).toBe(true);
-		expect(sheet.Spells.find((spell) => spell.Name === 'Sorcerous Burst')?.Prepared).toBe(false);
+		expect(sheet.spells.find((spell) => spell.name === 'Shield')?.prepared).toBe(true);
+		expect(sheet.spells.find((spell) => spell.name === 'Sorcerous Burst')?.prepared).toBe(false);
 	});
 
 	it('keeps features under the sub-heading they were listed beneath', () => {
-		expect(sheet.Features).toEqual([
-			{ Category: 'Racial Traits', Name: 'Darkvision', Desc: 'You have Darkvision with a range of 60 feet.' },
-			{ Category: 'Racial Traits', Name: 'Size', Desc: 'You are Medium (about 5–6 feet tall).' },
+		expect(sheet.features).toEqual([
+			{ category: 'Racial Traits', name: 'Darkvision', desc: 'You have Darkvision with a range of 60 feet.' },
+			{ category: 'Racial Traits', name: 'Size', desc: 'You are Medium (about 5–6 feet tall).' },
 			{
-				Category: 'Feats',
-				Name: 'Magic Initiate (Wizard)',
-				Desc: 'Origin Feat\n\nYou gain the following benefits.',
+				category: 'Feats',
+				name: 'Magic Initiate (Wizard)',
+				desc: 'Origin Feat\n\nYou gain the following benefits.',
 			},
 		]);
 	});
 
 	it('reads equipment quantities and the equipped tick', () => {
-		expect(sheet.Equipment).toEqual([
-			{ Name: 'Dagger', Quantity: 1, Weight: '1.0 lbs', Equipped: false },
-			{ Name: 'Backpack', Quantity: 1, Weight: '5.0 lbs', Equipped: true },
-			{ Name: 'Rations', Quantity: 10, Weight: '20.0 lbs', Equipped: false },
+		expect(sheet.equipment).toEqual([
+			{ name: 'Dagger', quantity: 1, weight: '1.0 lbs', equipped: false },
+			{ name: 'Backpack', quantity: 1, weight: '5.0 lbs', equipped: true },
+			{ name: 'Rations', quantity: 10, weight: '20.0 lbs', equipped: false },
 		]);
 	});
 
 	it('drops the exporter\'s blank trailing attack row', () => {
-		expect(sheet.Attacks.map((attack) => attack.Name)).toEqual([
+		expect(sheet.attacks.map((attack) => attack.name)).toEqual([
 			'Unarmed Strike',
 			'Sorcerous Burst',
 		]);
 	});
 
 	it('omits an absent currency table rather than inventing an empty purse', () => {
-		expect(sheet.Currency).toBeUndefined();
+		expect(sheet.currency).toBeUndefined();
 	});
 });

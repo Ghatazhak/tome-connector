@@ -2,9 +2,10 @@
  * The classes a character note names, in the shape the Tome endpoint stores them.
  *
  * Tome keeps a character's classes as a list - one entry per class with its own level and
- * subclass - beside the free-text `Class` line and the total `Level` it has always taken. The
- * server fills that list itself when a payload carries none, by parsing the line, so a note
- * that says only `class: Barbarian 3` needs nothing from here and never did. This module is for
+ * subclass - beside the free-text `class` line and the total `level` it has always taken, all three
+ * inside the character's `dnd5e` bag. The server fills that list itself when a payload carries
+ * none, by parsing the line, so a note that says only `class: Barbarian 3` needs nothing from
+ * here and never did. This module is for
  * the note that wants to be explicit: a `classes:` property, which the D&D Beyond exporter does
  * not write but a person can, that names each class on its own.
  *
@@ -20,11 +21,11 @@
  *   off a sheet reads back. A string with no number is a single level.
  */
 
-/** One class as `PlayerCharacterInputDto.Classes` takes it. Property names are the server's. */
+/** One class as `Dnd5eCharacter.classes` takes it - the server's `PcClass`, in its wire casing. */
 export interface PcClassPayload {
-	Name: string;
-	Subclass?: string;
-	Level: number;
+	name: string;
+	subclass?: string;
+	level: number;
 }
 
 /** The frontmatter property this module reads. */
@@ -60,7 +61,7 @@ function readEntry(entry: unknown): PcClassPayload | undefined {
 		}
 		const subclass = text(record.subclass);
 		const level = integer(record.level) ?? 1;
-		return subclass ? { Name: name, Subclass: subclass, Level: level } : { Name: name, Level: level };
+		return subclass ? { name, subclass, level } : { name, level };
 	}
 	return undefined;
 }
@@ -95,7 +96,7 @@ export function readLine(line: string): PcClassPayload | undefined {
 	if (value.length === 0) {
 		return undefined;
 	}
-	return subclass ? { Name: value, Subclass: subclass, Level: level } : { Name: value, Level: level };
+	return subclass ? { name: value, subclass, level } : { name: value, level };
 }
 
 function text(value: unknown): string | undefined {
