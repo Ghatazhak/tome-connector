@@ -107,10 +107,10 @@ describe('the shapes the layout allows', () => {
 	it('reads a strike\'s bonus and keeps the whole line', () => {
 		const [melee, ranged] = toStrikes(GOBLIN.attacks);
 
-		expect(melee.kind).toBe('melee');
-		expect(melee.bonus).toBe(8);
-		expect(melee.text).toContain('1d6+1 slashing');
-		expect(ranged.kind).toBe('ranged');
+		expect(melee?.kind).toBe('melee');
+		expect(melee?.bonus).toBe(8);
+		expect(melee?.text).toContain('1d6+1 slashing');
+		expect(ranged?.kind).toBe('ranged');
 	});
 });
 
@@ -162,33 +162,29 @@ describe('mapToPf2eCreature', () => {
 describe('the payload the endpoint receives', () => {
 	const payload = mapToNpcPayload(GOBLIN);
 
-	it('sends the stat block in the bag and leaves the 5e columns alone', () => {
-		expect(payload.Pf2e).toBeDefined();
-		expect(payload.Stats).toBeUndefined();
-		expect(payload.Traits).toBeUndefined();
-		expect(payload.Actions).toBeUndefined();
+	it('sends the stat block in the pf2e bag and no dnd5e bag beside it', () => {
+		expect(payload.pf2e).toEqual(mapToPf2eCreature(GOBLIN));
+		expect(payload.dnd5e).toBeUndefined();
 	});
 
-	it('fills the neutral columns the board and the library read', () => {
-		expect(payload.Name).toBe('Goblin Warrior');
-		expect(payload.Size).toBe('Small');
-		expect(payload.AC).toBe(16);
-		// A string, because the 5e model types it as one - and filled, because a creature
-		// arriving with an empty one lands on the board untracked.
-		expect(payload.HP).toBe('6');
-		// The level, in the column the 5e half puts a challenge rating in: both are the
-		// library's difficulty axis, and the client draws whichever its ruleset names.
-		expect(payload.CR).toBe('-1');
+	/**
+	 * The connector before 1.1.0 copied `Size`, `AC`, `HP` and `CR` out beside the bag for the
+	 * board's neutral columns. The server now stamps those from the bag itself, and refuses a
+	 * body carrying any of them flat as coming from an out-of-date connector - so the top level
+	 * is the name, the picture and nothing of the stat block.
+	 */
+	it('copies none of the stat block out to the top level', () => {
+		expect(Object.keys(payload).sort()).toEqual(['image', 'name', 'pf2e']);
+		expect(payload.name).toBe('Goblin Warrior');
 	});
 
-	it('still maps a D&D block the way it always did', () => {
+	it('still maps a D&D block into the dnd5e bag', () => {
 		const dnd = mapToNpcPayload({ name: 'Goblin', stats: [8, 14, 10, 10, 8, 8], ac: 15, hp: '7 (2d6)' });
 
-		expect(dnd.Pf2e).toBeUndefined();
-		expect(dnd.Stats).toEqual([8, 14, 10, 10, 8, 8]);
+		expect(dnd.pf2e).toBeUndefined();
+		expect(dnd.dnd5e?.stats).toEqual([8, 14, 10, 10, 8, 8]);
 	});
 });
-
 describe('hasInlineStats', () => {
 	// A Pathfinder note that stands alone is no more in need of the bestiary than a D&D one.
 	it('counts a Pathfinder block as self-sufficient', () => {

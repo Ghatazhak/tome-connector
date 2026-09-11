@@ -239,7 +239,7 @@ function toEntries(value: unknown): NamedAbility[] {
 		const record = entry as Record<string, unknown>;
 		const name = toStringSafe(record.name ?? record.Name);
 		if (name === undefined || name.trim() === '') continue;
-		out.push({ Name: name.trim(), Desc: toStringSafe(record.desc ?? record.Desc) ?? '' });
+		out.push({ name: name.trim(), desc: toStringSafe(record.desc ?? record.Desc) ?? '' });
 	}
 	return out;
 }
@@ -261,7 +261,7 @@ function toAbilities(record: Record<string, unknown>): Pf2eAbility[] {
 	const out: Pf2eAbility[] = [];
 	for (const [key, category] of ABILITY_SLOTS) {
 		for (const entry of toEntries(record[key])) {
-			out.push({ name: entry.Name, cost: 'passive', category, traits: [], text: entry.Desc });
+			out.push({ name: entry.name, cost: 'passive', category, traits: [], text: entry.desc });
 		}
 	}
 	return out;
@@ -276,10 +276,10 @@ function toAbilities(record: Record<string, unknown>): Pf2eAbility[] {
  */
 export function toStrikes(value: unknown): Pf2eStrike[] {
 	return toEntries(value).map((entry) => {
-		const text = stripMarkdownFromString(entry.Desc);
-		const name = entry.Name.toLowerCase();
+		const text = stripMarkdownFromString(entry.desc);
+		const name = entry.name.toLowerCase();
 		return {
-			name: entry.Name,
+			name: entry.name,
 			kind: name.includes('ranged') ? 'ranged' : 'melee',
 			bonus: toIntSafe(/[+-]\s*\d+/.exec(text)?.[0]) ?? 0,
 			traits: [],
@@ -341,7 +341,8 @@ export function mapToPf2eCreature(record: Record<string, unknown>): Pf2eCreature
 		source: toStringSafe(record.sourcebook)?.trim() || null,
 		level: toLevel(record.level),
 		rarity: rarity ?? 'common',
-		// Capitalised, because the neutral `Size` column and the stat block both print it.
+		// Capitalised, because the stat block prints it and the server stamps the board's
+		// neutral size column from it.
 		size: size ? size.charAt(0).toUpperCase() + size.slice(1) : 'Medium',
 		traits,
 		perception: toIntSafe(record.modifier) ?? 0,

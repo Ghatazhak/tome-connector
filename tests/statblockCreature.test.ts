@@ -8,7 +8,8 @@ import {
 	normalizeSaves,
 	normalizeSkillSaves,
 	toIntSafe,
-	toStatsArray
+	toStatsArray,
+	type Dnd5eCreature
 } from '../src/recognizers/statblockCreature';
 
 /**
@@ -141,26 +142,49 @@ describe('mergeCreature', () => {
 });
 
 describe('mapToNpcPayload', () => {
-	it('maps a real CLI creature', () => {
+	/** The bag, asserted present, so each case reads the stat block rather than guarding it. */
+	function bagOf(record: Record<string, unknown>): Dnd5eCreature {
+		const bag = mapToNpcPayload(record).dnd5e;
+		if (!bag) throw new Error('expected a dnd5e bag');
+		return bag;
+	}
+
+	it('maps a real CLI creature into the dnd5e bag', () => {
 		const payload = mapToNpcPayload(mergeCreature(null, githyankiKnight));
 
-		expect(payload.Name).toBe('Githyanki Knight');
-		expect(payload.AC).toBe(18);
-		expect(payload.HP).toBe('117');
-		expect(payload.HitDice).toBe('18d8 + 36');
-		expect(payload.Stats).toEqual([16, 14, 15, 14, 14, 15]);
-		expect(payload.CR).toBe('8');
-		expect(payload.AbilitySaves).toEqual([
-			{ Name: 'Constitution', Desc: '+5' },
-			{ Name: 'Intelligence', Desc: '+5' },
-			{ Name: 'Wisdom', Desc: '+5' }
+		expect(payload.name).toBe('Githyanki Knight');
+		expect(payload.image).toBe('3-Mechanics/CLI/bestiary/aberration/token/githyanki-knight-xmm.webp');
+		expect(payload.pf2e).toBeUndefined();
+
+		const bag = bagOf(mergeCreature(null, githyankiKnight));
+		expect(bag.size).toBe('Medium');
+		expect(bag.type).toBe('aberration');
+		expect(bag.subtype).toBe('gith');
+		expect(bag.ac).toBe(18);
+		expect(bag.hp).toBe('117');
+		expect(bag.hitDice).toBe('18d8 + 36');
+		expect(bag.stats).toEqual([16, 14, 15, 14, 14, 15]);
+		expect(bag.cr).toBe('8');
+		expect(bag.abilitySaves).toEqual([
+			{ name: 'Constitution', desc: '+5' },
+			{ name: 'Intelligence', desc: '+5' },
+			{ name: 'Wisdom', desc: '+5' }
 		]);
-		expect(payload.BonusActions).toHaveLength(1);
+		expect(bag.bonusActions).toHaveLength(1);
+	});
+
+	/**
+	 * The server refuses a body carrying any flat 5e field with `connector.outdated`, so the
+	 * top level is the neutral fields and the bag, and nothing else.
+	 */
+	it('sends nothing of the stat block at the top level', () => {
+		const payload = mapToNpcPayload(mergeCreature(null, githyankiKnight));
+		expect(Object.keys(payload).sort()).toEqual(['dnd5e', 'image', 'name']);
 	});
 
 	/** 138 of the CLI's creatures are summons whose AC is a formula and have no `ac`. */
 	it('falls back to ac_class when there is no ac', () => {
-		expect(mapToNpcPayload(aberrantSpirit).AC).toBe(11);
+		expect(bagOf(aberrantSpirit).ac).toBe(11);
 	});
 
 	/**
@@ -168,40 +192,41 @@ describe('mapToNpcPayload', () => {
 	 * into a trait beats the previous behaviour, which was to drop it silently.
 	 */
 	it('keeps gear as a trait, with the markdown links flattened', () => {
-		const payload = mapToNpcPayload(mergeCreature(null, githyankiKnight));
-		expect(payload.Traits).toContainEqual({ Name: 'Gear', Desc: 'plate armor' });
+		expect(bagOf(mergeCreature(null, githyankiKnight)).traits)
+			.toContainEqual({ name: 'Gear', desc: 'plate armor' });
 	});
 
 	it('puts the legendary preamble at the head of the legendary actions', () => {
-		const payload = mapToNpcPayload({
+		const bag = bagOf({
 			name: 'Aboleth',
 			legendary_description: 'Legendary Action Uses: 3 (4 in Lair).',
 			legendary_actions: [{ name: 'Lash', desc: 'The aboleth makes one attack.' }]
 		});
 
-		expect(payload.LegendaryActions).toEqual([
-			{ Name: 'Legendary Actions', Desc: 'Legendary Action Uses: 3 (4 in Lair).' },
-			{ Name: 'Lash', Desc: 'The aboleth makes one attack.' }
+		expect(bag.legendaryActions).toEqual([
+			{ name: 'Legendary Actions', desc: 'Legendary Action Uses: 3 (4 in Lair).' },
+			{ name: 'Lash', desc: 'The aboleth makes one attack.' }
 		]);
 	});
 
 	it('does not invent a legendary heading when there are no legendary actions', () => {
-		expect(mapToNpcPayload({ name: 'X', legendary_description: 'Unused' }).LegendaryActions)
-			.toEqual([]);
+		expect(bagOf({ name: 'X', legendary_description: 'Unused' }).legendaryActions).toEqual([]);
 	});
 
 	it('drops fields the server does not model rather than sending them', () => {
 		const payload = mapToNpcPayload(mergeCreature(null, githyankiKnight));
-		expect(payload).not.toHaveProperty('modifier');
-		expect(payload).not.toHaveProperty('source');
-		expect(payload).not.toHaveProperty('gear');
+		for (const where of [payload, payload.dnd5e]) {
+			expect(where).not.toHaveProperty('modifier');
+			expect(where).not.toHaveProperty('source');
+			expect(where).not.toHaveProperty('gear');
+		}
 	});
 
 	/** The plugin's own id is not a GUID and would fail model binding server-side. */
 	it('forwards only a GUID id', () => {
-		expect(mapToNpcPayload({ name: 'X', id: 'goblin-1' })).not.toHaveProperty('Id');
+		expect(mapToNpcPayload({ name: 'X', id: 'goblin-1' })).not.toHaveProperty('id');
 		expect(
-			mapToNpcPayload({ name: 'X', id: '3e8f6c30-0000-4000-8c00-000000000001' }).Id
+			mapToNpcPayload({ name: 'X', id: '3e8f6c30-0000-4000-8c00-000000000001' }).id
 		).toBe('3e8f6c30-0000-4000-8c00-000000000001');
 	});
 });

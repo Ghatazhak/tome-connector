@@ -1,6 +1,18 @@
 /**
- * Turns a Fantasy Statblocks creature into the Tome server's
- * `NonPlayerCharacter` shape.
+ * Turns a Fantasy Statblocks creature into the body Tome's
+ * `AddNonPlayerCharacter` binds: `ImportNonPlayerCharacterDto`.
+ *
+ * **The rules travel in one named bag, and only there.** Everything that is a
+ * D&D 5e stat block goes inside `dnd5e`, a Pathfinder one inside `pf2e`, and
+ * the top level carries only what belongs to no system - the name, the picture,
+ * the id. The server refuses a body carrying any of the flat 5e fields a
+ * connector before 1.1.0 sent (`size`, `ac`, `hp`, `cr` and the rest) with a 400
+ * coded `connector.outdated`, whatever else the body carries - so a Pathfinder
+ * creature copying its size or hit points out beside `pf2e` is refused too. The
+ * server derives the board's vitals from the bag itself.
+ *
+ * Every key is the server's own camelCase spelling, matching the generated
+ * schema, rather than relying on ASP.NET's case-insensitive binding.
  *
  * A pure module with no `obsidian` import, deliberately: the plugin's own rule -
  * stated in the headers of `tomeBaseUrl.ts` and `tomeChapterPlan.ts` - is that
@@ -16,17 +28,54 @@
 import { stripMarkdownFromString } from '../tomeMarkdownSanitizer';
 import { isPf2eCreature, mapToPf2eCreature, type Pf2eCreature } from './pf2eCreature';
 
-/** The `NonPlayerCharacter` model's PascalCase shape, as the endpoint wants it. */
+/** The server's `NamedAbility`, in the casing its record pins. */
 export interface NamedAbility {
-	Name: string;
-	Desc: string;
+	name: string;
+	desc: string;
 }
 
+/**
+ * The server's `Dnd5eCreature` - the `dnd5e` bag - field for field, as its
+ * `JsonPropertyName` attributes pin them. `darkvisionFeet` is the one field left
+ * off: no Fantasy Statblocks block states it as a number.
+ */
+export interface Dnd5eCreature {
+	size?: string;
+	type?: string;
+	subtype?: string;
+	alignment?: string;
+	ac: number;
+	hp: string;
+	hitDice?: string;
+	speed?: string;
+	stats?: number[];
+	abilitySaves: NamedAbility[];
+	proficientSkills: NamedAbility[];
+	damageVulnerabilities?: string;
+	damageResistances?: string;
+	damageImmunities?: string;
+	conditionImmunities?: string;
+	senses?: string;
+	languages?: string;
+	cr?: string;
+	spells: string[];
+	traits: NamedAbility[];
+	actions: NamedAbility[];
+	legendaryActions: NamedAbility[];
+	bonusActions: NamedAbility[];
+	reactions: NamedAbility[];
+}
+
+/**
+ * `ImportNonPlayerCharacterDto`, the whole of what the endpoint reads. Exactly
+ * one of the two bags is filled; the server refuses a body carrying both.
+ */
 export interface NpcPayload {
-	[key: string]: unknown;
-	Name: string;
-	AC: number;
-	HP: string;
+	id?: string;
+	image: string;
+	name: string;
+	dnd5e?: Dnd5eCreature;
+	pf2e?: Pf2eCreature;
 }
 
 const UUID_PATTERN =
@@ -75,7 +124,7 @@ function toNamedAbility(entry: unknown): NamedAbility | null {
 	const name = record.name ?? record.Name;
 	const desc = record.desc ?? record.Desc;
 	if (typeof name !== 'string' || name.trim() === '') return null;
-	return { Name: name, Desc: typeof desc === 'string' ? desc : '' };
+	return { name, desc: typeof desc === 'string' ? desc : '' };
 }
 
 export function toNamedAbilityList(value: unknown): NamedAbility[] {
@@ -223,7 +272,7 @@ function extraTraits(record: Record<string, unknown>): NamedAbility[] {
 			.map(stripMarkdownFromString)
 			.filter((entry) => entry !== '');
 		if (gear.length > 0) {
-			extras.push({ Name: 'Gear', Desc: gear.join(', ') });
+			extras.push({ name: 'Gear', desc: gear.join(', ') });
 		}
 	}
 
@@ -232,7 +281,7 @@ function extraTraits(record: Record<string, unknown>): NamedAbility[] {
 		['lair_actions', 'Lair Actions'],
 	] as const) {
 		for (const entry of toNamedAbilityList(record[key])) {
-			extras.push({ Name: `${label}: ${entry.Name}`, Desc: entry.Desc });
+			extras.push({ name: `${label}: ${entry.name}`, desc: entry.desc });
 		}
 	}
 
@@ -248,94 +297,80 @@ function legendaryActions(record: Record<string, unknown>): NamedAbility[] {
 	const actions = toNamedAbilityList(record.legendary_actions);
 	const description = optionalString(record.legendary_description);
 	if (!description || actions.length === 0) return actions;
-	return [{ Name: 'Legendary Actions', Desc: description }, ...actions];
+	return [{ name: 'Legendary Actions', desc: description }, ...actions];
 }
 
-/**
- * The Pathfinder half of `mapToNpcPayload`, kept beside it rather than in the other file
- * so the one function callers reach for is the one that decides.
- *
- * `HP` is a string on the wire because the 5e model types it as one, and it is filled here
- * as well as in the bag: the tracker reads the neutral column to place a token with the
- * right hit points, and a Pathfinder creature arriving with an empty one would land on the
- * board untracked.
- */
-function mapToPf2eNpcPayload(record: Record<string, unknown>): NpcPayload {
-	const pf2e: Pf2eCreature = mapToPf2eCreature(record);
-	const payload: NpcPayload = {
-		Image: optionalString(record.image) ?? '',
-		Name: pf2e.name,
-		Size: pf2e.size,
-		AC: pf2e.ac,
-		HP: String(pf2e.hp),
-		// The level, in the column the 5e half puts a challenge rating in. Both are the
-		// library's difficulty axis, and the client draws whichever the campaign's ruleset
-		// names - see `ruleset-profile.ts`'s `creatureLevelAxis`.
-		CR: String(pf2e.level),
-		Pf2e: pf2e,
-	};
 
+/**
+ * The GUID a note carries from an earlier send, so a re-send updates rather than
+ * duplicating. Guarded because the source `id` is often the plugin's own, which is
+ * not a GUID and would fail model binding.
+ */
+function guidOf(record: Record<string, unknown>): string | undefined {
 	const id = record.id;
-	if (typeof id === 'string' && UUID_PATTERN.test(id)) {
-		payload.Id = id;
-	}
-
-	return payload;
+	return typeof id === 'string' && UUID_PATTERN.test(id) ? id : undefined;
 }
 
 /**
- * Maps a resolved creature onto the endpoint's `NonPlayerCharacter` model,
- * dropping the fields the server does not model (`layout`, `fage_stats`,
- * `bestiary`, `modifier`, `source`).
+ * A 5e stat block as the `dnd5e` bag, dropping the fields the server does not
+ * model (`layout`, `fage_stats`, `bestiary`, `modifier`, `source`).
  */
-export function mapToNpcPayload(record: Record<string, unknown>): NpcPayload {
-	// A Pathfinder creature is a different stat block, not a differently-filled one: its
-	// numbers go in the `Pf2e` bag and the 5e columns stay at their defaults, which is the
-	// same division the server's own importer makes. Only the neutral fields - the name,
-	// the picture, the size the board places a token by - are filled on both.
-	if (isPf2eCreature(record)) return mapToPf2eNpcPayload(record);
-
-	const payload: NpcPayload = {
-		Image: optionalString(record.image) ?? '',
-		Name: optionalString(record.name) ?? '',
-		Size: optionalString(record.size),
-		Type: optionalString(record.type),
-		Subtype: optionalString(record.subtype),
-		Alignment: optionalString(record.alignment),
+export function mapToDnd5eCreature(record: Record<string, unknown>): Dnd5eCreature {
+	return {
+		size: optionalString(record.size),
+		type: optionalString(record.type),
+		subtype: optionalString(record.subtype),
+		alignment: optionalString(record.alignment),
 		// `ac` on 618 of the CLI's creatures, `ac_class` on 138 - a summon's AC is
 		// a formula ("11 + the spell's level"), and the leading integer is the
 		// best single number available for a field the server types as an int.
-		AC: toIntSafe(record.ac) ?? toIntSafe(record.ac_class) ?? 0,
-		HP: toStringSafe(record.hp) ?? '',
-		HitDice: optionalString(record.hit_dice),
-		Speed: optionalString(record.speed),
-		Stats: toStatsArray(record.stats),
-		AbilitySaves: toNamedAbilityList(record.saves),
-		ProficientSkills: toNamedAbilityList(record.skillsaves),
-		DamageVulnerabilities: optionalString(record.damage_vulnerabilities),
-		DamageResistances: optionalString(record.damage_resistances),
-		DamageImmunities: optionalString(record.damage_immunities),
-		ConditionImmunities: optionalString(record.condition_immunities),
-		Senses: optionalString(record.senses),
-		Languages: optionalString(record.languages),
-		CR: toStringSafe(record.cr),
-		Spells: Array.isArray(record.spells)
+		ac: toIntSafe(record.ac) ?? toIntSafe(record.ac_class) ?? 0,
+		hp: toStringSafe(record.hp) ?? '',
+		hitDice: optionalString(record.hit_dice),
+		speed: optionalString(record.speed),
+		stats: toStatsArray(record.stats),
+		abilitySaves: toNamedAbilityList(record.saves),
+		proficientSkills: toNamedAbilityList(record.skillsaves),
+		damageVulnerabilities: optionalString(record.damage_vulnerabilities),
+		damageResistances: optionalString(record.damage_resistances),
+		damageImmunities: optionalString(record.damage_immunities),
+		conditionImmunities: optionalString(record.condition_immunities),
+		senses: optionalString(record.senses),
+		languages: optionalString(record.languages),
+		cr: toStringSafe(record.cr),
+		spells: Array.isArray(record.spells)
 			? record.spells.filter((entry): entry is string => typeof entry === 'string')
 			: [],
-		Traits: [...toNamedAbilityList(record.traits), ...extraTraits(record)],
-		Actions: toNamedAbilityList(record.actions),
-		LegendaryActions: legendaryActions(record),
-		BonusActions: toNamedAbilityList(record.bonus_actions),
-		Reactions: toNamedAbilityList(record.reactions),
+		traits: [...toNamedAbilityList(record.traits), ...extraTraits(record)],
+		actions: toNamedAbilityList(record.actions),
+		legendaryActions: legendaryActions(record),
+		bonusActions: toNamedAbilityList(record.bonus_actions),
+		reactions: toNamedAbilityList(record.reactions),
 	};
+}
 
-	// Carried through so a re-send updates rather than duplicating. Guarded
-	// because the source `id` is often the plugin's own, which is not a GUID and
-	// would fail model binding.
-	const id = record.id;
-	if (typeof id === 'string' && UUID_PATTERN.test(id)) {
-		payload.Id = id;
+/**
+ * Maps a resolved creature onto `ImportNonPlayerCharacterDto`.
+ *
+ * A Pathfinder creature is a different stat block, not a differently-filled one, so
+ * which bag it travels in is decided here, once: `pf2e` for a block written against
+ * the Pathfinder layout, `dnd5e` for everything else. Nothing of either stat block is
+ * copied out to the top level - not even the size, armour class, hit points or level
+ * the board and the library draw. The server stamps those from the bag, and a body
+ * carrying them flat is refused as coming from an out-of-date connector.
+ */
+export function mapToNpcPayload(record: Record<string, unknown>): NpcPayload {
+	const image = optionalString(record.image) ?? '';
+	let payload: NpcPayload;
+	if (isPf2eCreature(record)) {
+		const pf2e: Pf2eCreature = mapToPf2eCreature(record);
+		payload = { image, name: pf2e.name, pf2e };
+	} else {
+		payload = { image, name: optionalString(record.name) ?? '', dnd5e: mapToDnd5eCreature(record) };
 	}
+
+	const id = guidOf(record);
+	if (id !== undefined) payload.id = id;
 
 	return payload;
 }
