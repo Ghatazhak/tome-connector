@@ -4,6 +4,7 @@ import { resolveCreatureData } from './fantasyStatblocksBestiary';
 import { mapToEncounterPayload } from './recognizers/encounter';
 import { mapReferenceFrom } from './recognizers/map';
 import type { Sendable } from './recognizers/noteScan';
+import { libraryItemBody, type LibraryItemKind } from './libraryItemBody';
 import { mapToNpcPayload } from './recognizers/statblockCreature';
 import { TOME_ROUTES } from './routes';
 import { readImageAsDataUri, resolveImagePaths } from './tomeImageEmbedding';
@@ -48,26 +49,26 @@ export async function buildRequest(
 		case 'magicItem':
 			return {
 				path: TOME_ROUTES.addMagicItem,
-				body: await itemBody(app, sendable, downscale),
+				body: await itemBody(app, sendable, sendable.kind, downscale),
 			};
 		case 'equipmentItem':
 			return {
 				path: TOME_ROUTES.addEquipmentItem,
-				body: await itemBody(app, sendable, downscale),
+				body: await itemBody(app, sendable, sendable.kind, downscale),
 			};
 		case 'spell':
 			return {
 				path: TOME_ROUTES.addSpell,
-				body: await itemBody(app, sendable, downscale),
+				body: await itemBody(app, sendable, sendable.kind, downscale),
 			};
 	}
 }
 
 /**
  * The item as parsed, with its art read off disk if it has any. Shared by
- * `magicItem` and `equipmentItem` - both carry a finished item on the
- * sendable (`magicItemFrom`/`equipmentItemFrom` already did the parse), so
- * the only work left here is the image, which needs the vault.
+ * `magicItem`, `equipmentItem` and `spell` - each carries a finished parse on the
+ * sendable (`noteScan` already did it), so the only work left here is the image,
+ * which needs the vault. `libraryItemBody` puts the rules into the `dnd5e` bag.
  *
  * **A missing image does not lose the item.** Everywhere else in this file an
  * unreadable file throws, because a map without its image is not a map. An item is
@@ -79,6 +80,7 @@ export async function buildRequest(
 async function itemBody(
 	app: App,
 	sendable: Sendable,
+	kind: LibraryItemKind,
 	downscale: boolean,
 ): Promise<string> {
 	const item = sendable.source['item'];
@@ -86,20 +88,18 @@ async function itemBody(
 		throw new Error(`No library entry was parsed from ${sendable.path}.`);
 	}
 
-	const { imagePath, ...fields } = item as Record<string, unknown>;
-	if (typeof imagePath !== 'string' || imagePath === '') {
-		return JSON.stringify(fields);
+	const fields = item as Record<string, unknown>;
+	const imagePath = fields['imagePath'];
+	let image: string | undefined;
+	if (typeof imagePath === 'string' && imagePath !== '') {
+		try {
+			image = await readImageAsDataUri(app, imagePath, 'token', downscale);
+		} catch {
+			console.warn(`Tome Connector: could not read ${imagePath}; sending without the image.`);
+		}
 	}
 
-	try {
-		return JSON.stringify({
-			...fields,
-			image: await readImageAsDataUri(app, imagePath, 'token', downscale),
-		});
-	} catch {
-		console.warn(`Tome Connector: could not read ${imagePath}; sending without the image.`);
-		return JSON.stringify(fields);
-	}
+	return JSON.stringify(libraryItemBody(kind, fields, image));
 }
 
 /**
